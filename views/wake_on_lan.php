@@ -6,7 +6,7 @@
  * @category   Apps
  * @package    Wake_on_lan
  * @subpackage Controllers
- * @author     itot_africa
+ * @author     scola0021@gmail.com
  * @copyright  2013 Your name / Company
  * @license    Your license
  */
@@ -48,7 +48,7 @@ echo ('<br/>');
 echo form_label('numero de port :');
 echo form_input($port);
 echo ('<br/>');
-$mavar = 'wake_on_lan/send/';
+$mavar = 'wake_on_lan/WakeOnLan/';
 echo anchor_ok($mavar, $importance = 'high', $options = NULL);
 
 echo form_footer();

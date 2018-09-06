@@ -6,7 +6,7 @@
  * @category   Apps
  * @package    Wake_on_lan
  * @subpackage Views
- * @author     Your name <your@e-mail>
+ * @author     scola0021@gmail.com
  * @copyright  2013 Your name / Company
  * @license    Your license
  */
@@ -21,7 +21,7 @@
  * @category   Apps
  * @package    Wake_on_lan
  * @subpackage Controllers
- * @author     Your name <your@e-mail>
+ * @author     scola0021@gmail.com
  * @copyright  2013 Your name / Company
  * @license    Your license
  */
@@ -49,6 +49,7 @@ class Wake_on_lan extends ClearOS_Controller
         //-----------
 
         $this->page->view_form('wake_on_lan', NULL, lang('wake_on_lan_app_name'));
+        $this->labrary->load('Php_wol');
         $this->page->view_form('essai', NULL, lang('wake_on_lan_app_name'));
     }  
     
@@ -62,69 +63,61 @@ class Wake_on_lan extends ClearOS_Controller
 	 * @param	integer		$port		- Port number at which the data will be sent
 	 * @return	boolean
 	 */
-	function send() {
-		// Throw exception if extension is not loaded
-		$addr = $this->input->post($ip);
-		$mac = $this->input->post($mac);
-		$port = $this->input->post($port);
+	function WakeOnLan(){
+	    
+	    $addr = $this->input->post($ip);
+        $mac = $this->input->post($mac);
+        $socket_number = $this->input->post($port);
 
-		if (!extension_loaded('sockets')) {
-			self::throwError("Error: The sockets extension is not loaded!");
-		}
+	    if (strlen($mac) != 17)
+		    return FALSE;
 
-		// Check if $addr is valid IP, if not try to resolve host
-		if (!filter_var($addr, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-			// Try to get the IPv4 address of a given host name
-			$originalAddr = gethostbyname($addr);
-			if ($originalAddr == $addr) {
-				self::throwError('Error: Domain name is unresolvable or IP address is invalid!');
-			} else {
-				$addr = $originalAddr;
-			}
-		}
-		
-		$macHex = str_replace(array(':', '-'), NULL, $mac);
-		
-		// Throw exception if mac address is not valid
-		if (!ctype_xdigit($macHex) || strlen($macHex) != 12) {
-			self::throwError('Error: Mac address is invalid!');
-		}
-		
-		// Magic packet
-		$packet = str_repeat(chr(255), 6) . str_repeat(pack('H12', $macHex), 16);
-		
-		// Send to the broadcast address using UDP
-		self::$socket = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
-		
-		if (is_resource(self::$socket)) {
-		
-			// Set socket option
-			if (!socket_set_option(self::$socket, SOL_SOCKET, SO_BROADCAST, TRUE)) {
-				self::throwError();
-			}
-			
-			// Send magic packet
-			if (socket_sendto(self::$socket, $packet, strlen($packet), 0, $addr, $port) !== FALSE) {
-				socket_close(self::$socket);
-				return $msg;
-				echo("connexion reussie");
-			}
-		}
-		self::throwError();
-	}
-	/** Throw Last Error
-	 * @param	string		$msg	- Error message
-	 * @return	void
-	 */
-	private static function throwError($msg = NULL) {
-		// Take last error if err msg is empty
-		if (empty($msg)) {
-			self::$errCode = socket_last_error(self::$socket);
-			self::$errMsg = socket_strerror(self::$errCode);
-			$msg = "Error (" . self::$errCode . "): " . self::$errMsg;
-		}
-		throw new Exception($msg);
-	}
+	    if (preg_match('/[^A-Fa-f0-9:]/',$mac)) 
+		    return FALSE;
+
+	    $addr_byte = explode(':', $mac);
+	    $hw_addr   = '';
+	
+	    for ($a=0; $a <6; $a++) 
+		    $hw_addr .= chr(hexdec($addr_byte[$a]));
+	
+	        $msg = chr(255).chr(255).chr(255).chr(255).chr(255).chr(255);
+	
+	    for ($a = 1; $a <= 16; $a++) 
+		    $msg .= $hw_addr;
+	
+	        $s = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+	
+	        if ($s == FALSE) {
+		        echo "<div class=\"messageNOK\">Can't create socket!</div>\n";
+		        echo "Error: '".socket_last_error($s)."' - " . socket_strerror(socket_last_error($s));
+		        return FALSE;
+	        } 
+	        else {
+		        $opt_ret = socket_set_option($s, SOL_SOCKET, SO_BROADCAST, TRUE);
+	
+		        if ($opt_ret < 0) {
+			        echo "setsockopt() failed, error: " . strerror($opt_ret) . "<br />\n";
+			        return FALSE;
+		        }
+	
+		        if (socket_sendto($s, $msg, strlen($msg), 0, $addr, $socket_number)) {
+			        $content = bin2hex($msg);
+			        echo "<hr />\n";
+			        echo "<div class=\"messageOK\">Magic Packet Sent!</div>\n";
+			        echo "<b>Port:</b> ".$socket_number." <b>MAC:</b> ".$_GET['wake_machine']." <b>Data:</b>\n";
+			        echo "<textarea readonly class=\"textarea\" name=\"content\" >".$content."</textarea><br />\n";
+			        socket_close($s);
+			        return TRUE;
+		        }
+		    else {
+			    echo "<div class=\"messageNOK\">Magic Packet failed to send!</div>\n";
+			    return FALSE;
+		    } 
+	    }
+	    echo("connexion reussie!!!");
+    }
+ 
 }
 
 
